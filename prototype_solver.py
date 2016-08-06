@@ -242,62 +242,73 @@ def solomon(max_depth, max_time, depth_steps, time_steps,
 
     # The factors in iterative equation provided by the finite difference
     # approximations
-    second_order_factor = (effective_diffusion_constant * delta_time /
-                           delta_depth**2)
-    first_order_factor = (effective_velocity_constant * delta_time /
-                          (2 * delta_depth))
+    step_factor = np.power(delta_depth, 2) / delta_time
+    # Note: These factors are for the current time step side of the equation
+    # so the will be negated for calculations of the previous time step
+    previous_depth_factor = (-6 * effective_diffusion_constant - 3 *
+                             effective_velocity_constant * delta_depth)
+    current_depth_factor = 12 * effective_diffusion_constant
+    next_depth_factor = (-6 * effective_diffusion_constant + 3 *
+                         effective_velocity_constant * delta_depth)
 
-    # Construct the tridiagonal matrix using these factors
-    upper_diagonal = -0.5 * (second_order_factor + first_order_factor) + 1. / 6
-    middle_diagonal = 2. / 3 + second_order_factor
-    lower_diagonal = -0.5 * (second_order_factor - first_order_factor) + 1. / 6
-    a = TridiagonalMatrix(
-        depth_steps - 1, [upper_diagonal] * (depth_steps - 2),
-        [middle_diagonal] * (depth_steps - 1),
-        [lower_diagonal] * (depth_steps - 2))
+    # Construct the tridiagonal matrix for the current time step side
+    current_time_upper_diagonal = 2 * step_factor + previous_depth_factor
+    current_time_middle_diagonal = 8 * step_factor + current_depth_factor
+    current_time_lower_diagonal = 2 * step_factor + next_depth_factor
+    current_time_matrix = TridiagonalMatrix(
+        depth_steps - 1, [current_time_upper_diagonal] * (depth_steps - 2),
+        [current_time_middle_diagonal] * (depth_steps - 1),
+        [current_time_lower_diagonal] * (depth_steps - 2))
 
-    a.set(0, 0, 0.5 * (second_order_factor + first_order_factor) + 1/3)
-    a.set(a.size() - 1, a.size() - 1, 0.5 * (second_order_factor + first_order_factor) + 1/3)
+#     # Modify boundary factors
+#     current_time_matrix.set(
+#             0, 0, 0.5 * (second_order_factor + first_order_factor) + 1/3)
+#     current_time_matrix.set(
+#             a.size() - 1, a.size() - 1,
+#             0.5 * (second_order_factor + first_order_factor) + 1/3)
 
-    # Use the tridiagonal matrix, a, to solve the linear system,
-    # a . z = b
-    # where z is the solution for each depth step at the current time
-    # iteration, and b is the vector defined by the iterative equation.
+    # Construct the tridiagonal matrix for the previous time step side
+    previous_time_upper_diagonal = 2 * step_factor - previous_depth_factor
+    previous_time_middle_diagonal = 8 * step_factor - current_depth_factor
+    previous_time_lower_diagonal = 2 * step_factor - next_depth_factor
+    previous_time_matrix = \
+        (np.diag([previous_time_upper_diagonal] * (depth_steps - 2), 1) +
+         np.diag([previous_time_middle_diagonal] * (depth_steps - 1), 0) +
+         np.diag([previous_time_lower_diagonal] * (depth_steps - 2), -1))
 
-    # Construct the matrix that is used to calculate b from the solution to the
-    # previous time step.
-    b_upper_diagonal = 0.5 * (second_order_factor + first_order_factor) + 1. / 6
-    b_middle_diagonal = 2. / 3 - second_order_factor
-    b_lower_diagonal = 0.5 * (second_order_factor - first_order_factor) + 1. / 6
-    b_matrix = (np.diag([b_upper_diagonal] * (depth_steps - 2), 1) +
-                np.diag([b_middle_diagonal] * (depth_steps - 1), 0) +
-                np.diag([b_lower_diagonal] * (depth_steps - 2), -1))
+#     # Modify boundary factors
+#     previous_time_matrix[0, 0] = (-0.5 *
+#         (second_order_factor + first_order_factor) + 1/3
+#     previous_time_matrix[-1, -1] = (-0.5 *
+#         (second_order_factor + first_order_factor) + 1/3)
 
-    b_matrix[0, 0] = -0.5 * (second_order_factor + first_order_factor) + 1/3
-    b_matrix[-1, -1] = -0.5 * (second_order_factor + first_order_factor) + 1/3
-
-    # Initialize the solution matrix. This matrix will contain all the
+    # Initialize the solution grid matrix. This matrix will contain all the
     # solution values, including the boundaries.
-    u = np.empty((time_steps + 1, depth_steps + 1))
+    solution_grid = np.empty((time_steps + 1, depth_steps + 1))
     # Fill with boundaries
-    u[0,:] = 0
-    u[:,-1] = 0
-    u[:,0] = surface_tracer_concentrations
+    solution_grid[0,:] = 0
+    solution_grid[:,-1] = 0
+    solution_grid[:,0] = surface_tracer_concentrations
     for time_step in range(1, time_steps + 1):
         # Slice the boundary conditions from previous time step solution
-        b = b_matrix.dot(u[time_step - 1,1:-1])
+        b = previous_time_matrix.dot(solution_grid[time_step - 1,1:-1])
+
         # Add the boundary offset to b
         # (the offset for b[-1] is 0 because the boundary at max depth is 0)
-        # b[0] += u[time_step, 0]
-        b[0] = ((second_order_factor + first_order_factor) * u[time_step, 0] +
-                (2. / 3 -second_order_factor) * u[time_step - 1, 1] +
-                (0.5 * (second_order_factor - first_order_factor) + 1. / 6) * u[time_step - 1, 2])
+        b[0] += (previous_time_lower_diagonal * solution_grid[time_step - 1, 0] -
+                 current_time_lower_diagonal * solution_grid[time_step, 0])
+#         b[0] = ((second_order_factor + first_order_factor) *
+#                 solution_grid[time_step, 0] +
+#                 (2. / 3 -second_order_factor) * solution_grid[time_step - 1, 1] +
+#                 (0.5 * (second_order_factor - first_order_factor) + 1. / 6) *
+#                 solution_grid[time_step - 1, 2])
 
         # Calculate the current time step's solution
         # and insert it in between boundaries in solution matrix
-        u[time_step, 1:-1] = crout_factorization(a, b)
+        solution_grid[time_step, 1:-1] = crout_factorization(
+                current_time_matrix, b)
 
-    return u
+    return solution_grid
 
 
 if __name__ == '__main__':
@@ -310,7 +321,7 @@ if __name__ == '__main__':
         'cfc-11_atmospheric_concentrations.csv', dtype=float, delimiter=',',
         names=True)
 
-    solution_grid = crank_nicolson(
+    solution_grid = solomon(
         200, 74, 1000, 148, effective_diffusion_constant,
         effective_velocity_constant, cfc_11_concentrations['concentration'])
     np.savetxt('solution_grid.csv', solution_grid, delimiter=',')
