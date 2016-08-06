@@ -1,0 +1,330 @@
+"""
+Planning for implementation of a numerical solver using the Crank
+Nicolson method. For the diffusion/advection PDE of gas tracers through
+the unsaturated zone.
+
+Author: Jeffrey Rutledge (jrutledge@usgs.gov, jeff_rutledge@icloud.com)
+"""
+
+import numpy as np
+from scipy.sparse import diags
+from matplotlib import pyplot as plt
+
+class TridiagonalMatrix(object):
+    def __init__(self, size, upper=None, middle=None, lower=None):
+        self.size_ = size
+        if upper:
+            assert len(upper) == size - 1, (
+                'upper does not have correct dimensions.'
+                ' It is {} not {}'.format(len(upper), size - 1))
+            self.upper_ = np.array(upper)
+        else:
+            self.upper_ = np.zeros(size - 1)
+
+        if middle:
+            assert len(middle) == size, (
+                'middle does not have correct dimensions.'
+                ' It is {} not {}'.format(len(middle), size))
+            self.middle_ = np.array(middle)
+        else:
+            self.middle_ = np.zeros(size)
+
+        if lower:
+            assert len(lower) == size - 1, (
+                'lower does not have correct dimensions.'
+                ' It is {} not {}'.format(len(lower), size - 1))
+            self.lower_ = np.array(lower)
+        else:
+            self.lower_ = np.zeros(size - 1)
+
+    def get(self, row, column):
+        assert row >= 0 and row < self.size_, ('Index out of bounds.'
+                                              'Row {}'.format(row))
+        assert column >= 0 and column < self.size_, ('Index out of bounds.'
+                                                    'Column {}'.format(column))
+
+        if row == column:
+            return self.middle_[row]
+        elif row == column - 1:
+            return self.upper_[row]
+        elif row == column + 1:
+            return self.lower_[column]
+        else:
+            return 0.
+
+    def set(self, row, column, value):
+        assert row >= 0 and row < self.size_, ('Index out of bounds.'
+                                              'Row {}'.format(row))
+        assert column >= 0 and column < self.size_, ('Index out of bounds.'
+                                                    'Column {}'.format(column))
+
+        if row == column:
+            self.middle_[row] = value
+        elif row == column - 1:
+            self.upper_[row] = value
+        elif row == column + 1:
+            self.lower_[column] = value
+        else:
+            assert False, 'Index not settable ({}, {})'.format(row, column)
+
+    def size(self):
+        return self.size_
+
+    def __str__(self):
+        output = ''
+        for row in range(self.size_):
+            for column in range(self.size_):
+                output += '{:>8.2}'.format(self.get(row, column))
+            output += '\n'
+        return output
+
+
+def crout_factorization(a, b):
+    """
+    Uses the Crout Factorization algorithm to solve the linear system
+        a . x = b
+    where a is a tridiagonal matrix that is positive definite, or
+    strictly diagonally dominant, b is a column vector of the same
+    dimension as a, for the column vector x.
+
+    Reference
+    ---------
+    Richard L. Burden and J. Douglas Faires, Numerical Analysis 8th Edition,
+    pp. 408-409, 2005.
+    """
+    n = a.size()
+    # Initialize the matrices the input will be factored into: l and u
+    l = TridiagonalMatrix(n)
+    u = TridiagonalMatrix(n, middle=[1.] * n)
+
+    z = np.zeros(n)
+
+    l.set(0, 0, a.get(0, 0))
+    u.set(0, 1, a.get(0, 1) / l.get(0, 0))
+    z[0] = b[0] / l.get(0, 0)
+
+    for i in range(1, n - 1):
+        l.set(i, i - 1, a.get(i, i - 1))
+        l.set(i, i, a.get(i, i) - l.get(i, i - 1) * u.get(i - 1, i))
+        u.set(i, i + 1, a.get(i, i + 1) / l.get(i, i))
+        z[i] = (b[i] - l.get(i, i - 1) * z[i - 1]) / l.get(i, i)
+
+    l.set(n - 1, n - 2, a.get(n - 1, n - 2))
+    l.set(n - 1, n - 1, a.get(n - 1, n - 1) - l.get(n - 1, n - 2) *
+          u.get(n - 2, n - 1))
+    z[n - 1] = ((b[n - 1] - l.get(n - 1, n - 2) * z[n - 2]) /
+                l.get(n - 1, n - 1))
+
+    output = np.zeros(n)
+    output[n - 1] = z[n - 1]
+    for i in range(n - 2, -1, -1):
+        output[i] = z[i] - u.get(i, i + 1) * output[i + 1]
+    return output
+
+
+def crank_nicolson(max_depth, max_time, depth_steps, time_steps,
+                   effective_diffusion_constant, effective_velocity_constant,
+                   surface_tracer_concentrations):
+    """
+    Uses the Crank Nicolson method to numerically approximate the PDE,
+        du/dt = ED (d2u/dz2) - EV (du/dz)
+    where the `d`s are partials, ED is the effective diffusion constant,
+    EV is the effective velocity constant, z is depth, t is time, and u
+    is the gas concentration.
+
+    The surface tracer concentration is the bound for u(t, 0) where
+    u(t, z). This must have a point for each step in the simulation and one for
+    corner bound at u(0, 0).
+
+    The boundaries along u(0, z) and u(t, max_depth) are assumed to be
+    u = 0.
+
+    Method
+    ------
+    The PDE is approximated using the central difference approximation
+    for the second and first order partials of u with respect to z. Then
+    using the Crank Nicolson method by using the forward difference
+    approximation for the partial of u with respect to t averaging the
+    previous approximations at the current and next time step.
+
+    These approximations give a linear system with a tridiagonal matrix
+    that is solved using the Crout Factorization algorithm.
+    """
+    assert len(surface_tracer_concentrations) == time_steps + 1, \
+        'Surface boundary has length {}, not the expected {}'.format(
+            len(surface_tracer_concentrations), time_steps + 1)
+    delta_time = float(max_time) / time_steps
+    delta_depth = float(max_depth) / depth_steps
+
+    # The factors in iterative equation provided by the finite difference
+    # approximations
+    second_order_factor = (effective_diffusion_constant * delta_time /
+                           delta_depth**2)
+    first_order_factor = (effective_velocity_constant * delta_time /
+                          (2 * delta_depth))
+
+    # Construct the tridiagonal matrix using these factors
+    upper_diagonal = -0.5 * (second_order_factor + first_order_factor)
+    middle_diagonal = 1 + second_order_factor
+    lower_diagonal = -0.5 * (second_order_factor - first_order_factor)
+    a = TridiagonalMatrix(
+        depth_steps - 1, [upper_diagonal] * (depth_steps - 2),
+        [middle_diagonal] * (depth_steps - 1),
+        [lower_diagonal] * (depth_steps - 2))
+
+    # Use the tridiagonal matrix, a, to solve the linear system,
+    # a . z = b
+    # where z is the solution for each depth step at the current time
+    # iteration, and b is the vector defined by the iterative equation.
+
+    # Construct the matrix that is used to calculate b from the solution to the
+    # previous time step.
+    b_upper_diagonal = 0.5 * (second_order_factor + first_order_factor)
+    b_middle_diagonal = 1 - second_order_factor
+    b_lower_diagonal = 0.5 * (second_order_factor - first_order_factor)
+    b_matrix = (np.diag([b_upper_diagonal] * (depth_steps - 2), 1) +
+                np.diag([b_middle_diagonal] * (depth_steps - 1), 0) +
+                np.diag([b_lower_diagonal] * (depth_steps - 2), -1))
+
+    # Initialize the solution matrix. This matrix will contain all the
+    # solution values, including the boundaries.
+    u = np.empty((time_steps + 1, depth_steps + 1))
+    # Fill with boundaries
+    u[0,:] = 0
+    u[:,-1] = 0
+    u[:,0] = surface_tracer_concentrations
+    for time_step in range(1, time_steps + 1):
+        # Slice the boundary conditions from previous time step solution
+        b = b_matrix.dot(u[time_step - 1,1:-1])
+        # Add the boundary offset to b
+        # (the offset for b[-1] is 0 because the boundary at max depth is 0)
+        b[0] += (u[time_step, 0] * lower_diagonal +
+                 u[time_step - 1, 0] * b_lower_diagonal)
+
+        # Calculate the current time step's solution
+        # and insert it in between boundaries in solution matrix
+        u[time_step, 1:-1] = crout_factorization(a, b)
+
+    return u
+
+
+def solomon(max_depth, max_time, depth_steps, time_steps,
+            effective_diffusion_constant, effective_velocity_constant,
+            surface_tracer_concentrations):
+    """
+    Uses the Crank Nicolson method to numerically approximate the PDE,
+        du/dt = ED (d2u/dz2) - EV (du/dz)
+    where the `d`s are partials, ED is the effective diffusion constant,
+    EV is the effective velocity constant, z is depth, t is time, and u
+    is the gas concentration.
+
+    The surface tracer concentration is the bound for u(t, 0) where
+    u(t, z). This must have a point for each step in the simulation and one for
+    corner bound at u(0, 0).
+
+    The boundaries along u(0, z) and u(t, max_depth) are assumed to be
+    u = 0.
+
+    Method
+    ------
+    The PDE is approximated using the central difference approximation
+    for the second and first order partials of u with respect to z. Then
+    using the Crank Nicolson method by using a weighted forward 
+
+    These approximations give a linear system with a tridiagonal matrix
+    that is solved using the Crout Factorization algorithm.
+    """
+    assert len(surface_tracer_concentrations) == time_steps + 1, \
+        'Surface boundary has length {}, not the expected {}'.format(
+            len(surface_tracer_concentrations), time_steps + 1)
+    delta_time = float(max_time) / time_steps
+    delta_depth = float(max_depth) / depth_steps
+
+    # The factors in iterative equation provided by the finite difference
+    # approximations
+    second_order_factor = (effective_diffusion_constant * delta_time /
+                           delta_depth**2)
+    first_order_factor = (effective_velocity_constant * delta_time /
+                          (2 * delta_depth))
+
+    # Construct the tridiagonal matrix using these factors
+    upper_diagonal = -0.5 * (second_order_factor + first_order_factor) + 1. / 6
+    middle_diagonal = 2. / 3 + second_order_factor
+    lower_diagonal = -0.5 * (second_order_factor - first_order_factor) + 1. / 6
+    a = TridiagonalMatrix(
+        depth_steps - 1, [upper_diagonal] * (depth_steps - 2),
+        [middle_diagonal] * (depth_steps - 1),
+        [lower_diagonal] * (depth_steps - 2))
+
+    a.set(0, 0, 0.5 * (second_order_factor + first_order_factor) + 1/3)
+    a.set(a.size() - 1, a.size() - 1, 0.5 * (second_order_factor + first_order_factor) + 1/3)
+
+    # Use the tridiagonal matrix, a, to solve the linear system,
+    # a . z = b
+    # where z is the solution for each depth step at the current time
+    # iteration, and b is the vector defined by the iterative equation.
+
+    # Construct the matrix that is used to calculate b from the solution to the
+    # previous time step.
+    b_upper_diagonal = 0.5 * (second_order_factor + first_order_factor) + 1. / 6
+    b_middle_diagonal = 2. / 3 - second_order_factor
+    b_lower_diagonal = 0.5 * (second_order_factor - first_order_factor) + 1. / 6
+    b_matrix = (np.diag([b_upper_diagonal] * (depth_steps - 2), 1) +
+                np.diag([b_middle_diagonal] * (depth_steps - 1), 0) +
+                np.diag([b_lower_diagonal] * (depth_steps - 2), -1))
+
+    b_matrix[0, 0] = -0.5 * (second_order_factor + first_order_factor) + 1/3
+    b_matrix[-1, -1] = -0.5 * (second_order_factor + first_order_factor) + 1/3
+
+    # Initialize the solution matrix. This matrix will contain all the
+    # solution values, including the boundaries.
+    u = np.empty((time_steps + 1, depth_steps + 1))
+    # Fill with boundaries
+    u[0,:] = 0
+    u[:,-1] = 0
+    u[:,0] = surface_tracer_concentrations
+    for time_step in range(1, time_steps + 1):
+        # Slice the boundary conditions from previous time step solution
+        b = b_matrix.dot(u[time_step - 1,1:-1])
+        # Add the boundary offset to b
+        # (the offset for b[-1] is 0 because the boundary at max depth is 0)
+        # b[0] += u[time_step, 0]
+        b[0] = ((second_order_factor + first_order_factor) * u[time_step, 0] +
+                (2. / 3 -second_order_factor) * u[time_step - 1, 1] +
+                (0.5 * (second_order_factor - first_order_factor) + 1. / 6) * u[time_step - 1, 2])
+
+        # Calculate the current time step's solution
+        # and insert it in between boundaries in solution matrix
+        u[time_step, 1:-1] = crout_factorization(a, b)
+
+    return u
+
+
+if __name__ == '__main__':
+    d_star = 9.880225
+    q_star = 0.3
+    theta_star = 0.2255
+    effective_diffusion_constant = d_star / theta_star
+    effective_velocity_constant = q_star / theta_star
+    cfc_11_concentrations = np.genfromtxt(
+        'cfc-11_atmospheric_concentrations.csv', dtype=float, delimiter=',',
+        names=True)
+
+    solution_grid = crank_nicolson(
+        200, 74, 1000, 148, effective_diffusion_constant,
+        effective_velocity_constant, cfc_11_concentrations['concentration'])
+    np.savetxt('solution_grid.csv', solution_grid, delimiter=',')
+
+if __name__ == '__main__':
+    cfc_11_concentrations = np.genfromtxt(
+        'cfc-11_atmospheric_concentrations.csv', dtype=float, delimiter=',',
+        names=True)
+    solution_grid = np.genfromtxt(
+        'solution_grid.csv', dtype=float, delimiter=',')
+
+    for depth in range(0, 25, 5):
+        plt.plot(cfc_11_concentrations['year'], solution_grid[:,depth * 5],
+                 label=depth)
+
+    plt.legend(loc='best', fancybox=True)
+    plt.show()
