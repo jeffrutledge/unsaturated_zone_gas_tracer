@@ -29,8 +29,8 @@ template <size_t time_steps, size_t depth_steps>
 solution_grid<time_steps, depth_steps>& wieghted_time_difference(
     const unsigned int max_depth, const unsigned int max_time,
     const double effective_diffusion, const double effective_velocity,
-    const std::array<double, time_steps + 1>) {
-}
+    const std::array<double, time_steps + 1>);
+
 }
 
 #endif  // UNSATURATED_ZONE_TRACER_SOLVER_H
