@@ -504,8 +504,8 @@ def wieghted_time_single(max_depth, max_time, depth_steps, time_steps,
                  previous_time_middle_diagonal * solution_grid[time_step - 1, i + 1] +
                  previous_time_upper_diagonal * solution_grid[time_step - 1, i + 2])
         previous_time_vector[len(previous_time_vector) - 1] = \
-            (previous_time_lower_diagonal * solution_grid[time_step - 1, time_steps - 1] +
-             previous_time_middle_diagonal * solution_grid[time_step - 1, time_steps])
+            (previous_time_lower_diagonal * solution_grid[time_step - 1, -2] +
+             previous_time_middle_diagonal * solution_grid[time_step - 1, -1])
 
         # Calculate the current time step's solution
         # and insert it in between boundaries in solution matrix
