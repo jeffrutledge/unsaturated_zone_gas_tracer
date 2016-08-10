@@ -170,18 +170,18 @@ def crank_nicolson(max_depth, max_time, depth_steps, time_steps,
                          effective_velocity_constant * delta_depth)
 
     # Construct the tridiagonal matrix for the current time step side
-    current_time_upper_diagonal = step_factor + next_depth_factor
+    current_time_upper_diagonal = next_depth_factor
     current_time_middle_diagonal = 12 * step_factor + current_depth_factor
-    current_time_lower_diagonal = step_factor + previous_depth_factor
+    current_time_lower_diagonal = previous_depth_factor
     current_time_matrix = TridiagonalMatrix(
         depth_steps, [current_time_upper_diagonal] * (depth_steps - 1),
         [current_time_middle_diagonal] * (depth_steps),
         [current_time_lower_diagonal] * (depth_steps - 1))
 
     # Construct the tridiagonal matrix for the previous time step side
-    previous_time_upper_diagonal = step_factor - next_depth_factor
+    previous_time_upper_diagonal = -next_depth_factor
     previous_time_middle_diagonal = 12 * step_factor - current_depth_factor
-    previous_time_lower_diagonal = step_factor - previous_depth_factor
+    previous_time_lower_diagonal = -previous_depth_factor
     previous_time_matrix = \
         (np.diag([previous_time_upper_diagonal] * (depth_steps - 1), 1) +
          np.diag([previous_time_middle_diagonal] * (depth_steps), 0) +
@@ -591,5 +591,6 @@ def compare_csv_solution_grids(first_csv, second_csv):
 
 
 if __name__ == '__main__':
-    generate_solution_grid_csv(solomon)
-    compare_csv_solution_grids('c++_solution_grid.csv', 'solution_grid.csv')
+    compare_solvers(crank_nicolson, wieghted_time_single)
+    # generate_solution_grid_csv(wieghted_time_single)
+    # compare_csv_solution_grids('c++_solution_grid.csv', 'solution_grid.csv')
