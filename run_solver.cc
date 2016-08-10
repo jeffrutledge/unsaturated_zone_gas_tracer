@@ -43,11 +43,11 @@ int main() {
     ++entry_input_count;
   }
 
-  const auto solution = solver::WieghtedTimeDifference<TIME_STEPS, DEPTH_STEPS>(
+  const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
       74, 200, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY,
       surface_tracer_concentrations);
   std::ofstream solution_grid_csv;
-  solution_grid_csv.open("./solution_grid.csv");
+  solution_grid_csv.open("./c++_solution_grid.csv");
   solution_grid_csv.precision(std::numeric_limits<double>::max_digits10);
   for (const auto time_step : solution) {
     auto point_iter = time_step.cbegin();

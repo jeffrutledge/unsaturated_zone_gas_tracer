@@ -117,30 +117,26 @@ solution_grid<time_steps + 1, depth_steps + 1> CrankNicolson(
   const double delta_depth = (double)max_depth / depth_steps;
   // Construct factors in the iterative equation obtained from the finite
   // difference method.
-  const double time_approx_factor = std::pow(delta_depth, 2) / delta_time;
+  const double time_approx_factor = 4 * std::pow(delta_depth, 2) / delta_time;
   // Note: These remaining factors are for the current time step side of the
   // equation, so they will be negated when used in calculations on the previous
   // time step side.
-  const double previous_depth_factor = (-6 * effective_diffusion - 3 *
+  const double previous_depth_factor = (-2 * effective_diffusion - 
                                         effective_velocity * delta_depth);
-  const double current_depth_factor = 12 * effective_diffusion;
-  const double next_depth_factor = (-6 * effective_diffusion + 3 *
+  const double current_depth_factor = 4 * effective_diffusion;
+  const double next_depth_factor = (-2 * effective_diffusion +
                                     effective_velocity * delta_depth);
   // Construct the diagonal entries of the tridiagonal matrices.
   // For the current time step:
-  const double current_time_lower_diagonal = (2 * time_approx_factor +
-                                              previous_depth_factor);
-  const double current_time_middle_diagonal = (8 * time_approx_factor +
-                                               current_depth_factor);
-  const double current_time_upper_diagonal = (2 * time_approx_factor +
-                                              next_depth_factor);
+  const double current_time_lower_diagonal = previous_depth_factor;
+  const double current_time_middle_diagonal = (current_depth_factor +
+                                               time_approx_factor);
+  const double current_time_upper_diagonal = next_depth_factor;
   // For the previous time step:
-  const double previous_time_lower_diagonal = (2 * time_approx_factor -
-                                               previous_depth_factor);
-  const double previous_time_middle_diagonal = (8 * time_approx_factor -
-                                                current_depth_factor);
-  const double previous_time_upper_diagonal = (2 * time_approx_factor -
-                                               next_depth_factor);
+  const double previous_time_lower_diagonal = -previous_depth_factor;
+  const double previous_time_middle_diagonal = (-current_depth_factor +
+                                                time_approx_factor);
+  const double previous_time_upper_diagonal = -next_depth_factor;
   // Initialize the solution grid with boundary condition at t = 0
   solution_grid<time_steps + 1, depth_steps + 1> solution;
   solution[0].fill(0.);
