@@ -31,7 +31,7 @@ unsaturated_zone_tracer_solver.o: unsaturated_zone_tracer_solver.cc
 run_solver: run_solver.cc unsaturated_zone_tracer_solver.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< -o $@
 
-test_unsaturated_zone_tracer_solver: test_unsaturated_zone_tracer_solver.cc gtest-all.ounsaturated_zone_tracer_solver.h
+test_unsaturated_zone_tracer_solver: test_unsaturated_zone_tracer_solver.cc gtest-all.o unsaturated_zone_tracer_solver.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< -o $@ -pthread gtest-all.o
 
 test: test_unsaturated_zone_tracer_solver
