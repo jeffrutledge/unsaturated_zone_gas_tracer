@@ -68,8 +68,8 @@ using solution_grid = std::array<std::array<double, depth_steps>, time_steps>;
  * step.
  *
  * \return A two dimensional array of the solution grid containing all the
- * surface boundary condition (\f$z = 0\f$) and the initial boundary condition (\f$t
- * = 0\f$).
+ * surface boundary condition (\f$z = 0\f$) and the initial boundary condition
+ * (\f$t = 0\f$).
  */
 template <size_t time_steps, size_t depth_steps>
 solution_grid<time_steps + 1, depth_steps + 1>& WieghtedTimeDifference(
