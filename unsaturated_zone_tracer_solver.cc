@@ -7,6 +7,12 @@
  * transport of gas tracers through the unsaturated zone of soil.
  */
 
+namespace unsaturated_zone_tracer_solver_internal {
+
+
+
+}
+
 namespace unsaturated_zone_tracer_solver {
 
 

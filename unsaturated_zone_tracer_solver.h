@@ -33,7 +33,9 @@ template <size_t matrix_size>
 std::array<double, matrix_size> thomasAlgorithimSingleValue(
     const double lower_diagonal, const double middle_diagonal,
     const double upper_diagonal,
-    const std::array<double, matrix_size> rhs_vector);
+    const std::array<double, matrix_size> rhs_vector) {
+
+}
 
 }
 
