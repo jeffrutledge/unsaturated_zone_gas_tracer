@@ -52,6 +52,7 @@ int main() {
   for (const auto time_step : solution) {
     auto point_iter = time_step.cbegin();
     solution_grid_csv << *point_iter;
+    ++point_iter;
     for (; point_iter != time_step.cend(); ++point_iter) {
       solution_grid_csv << "," << *point_iter;
     }

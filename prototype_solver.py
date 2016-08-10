@@ -572,19 +572,24 @@ def compare_solvers(first_solver, second_solver):
     plt.legend(loc='best', fancybox=True)
     plt.show()
 
-
-if __name__ == '__main__':
-    # generate_solution_grid_csv(wieghted_time_single)
-    # plot_solution_grid_csv()
-    d_star = 9.88011475
-    q_star = 0.3
-    theta_star = 0.2255
-    effective_diffusion_constant = d_star / theta_star
-    effective_velocity_constant = q_star / theta_star
+def compare_csv_solution_grids(first_csv, second_csv):
     cfc_11_concentrations = np.genfromtxt(
         'cfc-11_atmospheric_concentrations.csv', dtype=float, delimiter=',',
         names=True)
 
-    print timeit.timeit("wieghted_time_single(200, 74, 1000, 148, effective_diffusion_constant, effective_velocity_constant, cfc_11_concentrations['concentration'])", number=100, setup="from __main__ import wieghted_time_single, effective_diffusion_constant, effective_velocity_constant, cfc_11_concentrations")
+    first_solution_grid = np.genfromtxt(first_csv, dtype=float, delimiter=',')
+    second_solution_grid = np.genfromtxt(second_csv, dtype=float, delimiter=',')
 
-    print timeit.timeit("wieghted_time(200, 74, 1000, 148, effective_diffusion_constant, effective_velocity_constant, cfc_11_concentrations['concentration'])", number=100, setup="from __main__ import wieghted_time, effective_diffusion_constant, effective_velocity_constant, cfc_11_concentrations")
+    solution_grid_difference = first_solution_grid - second_solution_grid
+
+    for depth in range(0, 35, 5):
+        plt.plot(cfc_11_concentrations['year'], solution_grid_difference[:,depth * 5],
+                 label=depth)
+
+    plt.legend(loc='best', fancybox=True)
+    plt.show()
+
+
+if __name__ == '__main__':
+    generate_solution_grid_csv(solomon)
+    compare_csv_solution_grids('c++_solution_grid.csv', 'solution_grid.csv')
