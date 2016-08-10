@@ -333,9 +333,9 @@ if __name__ == '__main__':
     solution_grid = np.genfromtxt(
         'solution_grid.csv', dtype=float, delimiter=',')
 
-    for depth in range(0, 25, 5):
+    for depth in range(0, 200, 10):
         plt.plot(cfc_11_concentrations['year'], solution_grid[:,depth * 5],
                  label=depth)
 
-    plt.legend(loc='best', fancybox=True)
+    # plt.legend(loc='best', fancybox=True)
     plt.show()
