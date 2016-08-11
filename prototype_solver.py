@@ -273,6 +273,14 @@ def wieghted_time(max_depth, max_time, depth_steps, time_steps,
          np.diag([previous_time_middle_diagonal] * (depth_steps), 0) +
          np.diag([previous_time_lower_diagonal] * (depth_steps - 1), -1))
 
+    # # TESTING
+    # current_time_matrix.set(
+    #         current_time_matrix.size() - 1, current_time_matrix.size() - 1,
+    #          4 * step_factor - previous_depth_factor)
+
+    # previous_time_matrix[-1, -1] = 4 * step_factor + previous_depth_factor
+    # ###############
+
     # Initialize the solution grid matrix. This matrix will contain all the
     # solution values, including the boundaries.
     solution_grid = np.empty((time_steps + 1, depth_steps + 1))
@@ -289,6 +297,13 @@ def wieghted_time(max_depth, max_time, depth_steps, time_steps,
                  solution_grid[time_step - 1, 0] +
                  -current_time_lower_diagonal *
                  solution_grid[time_step, 0])
+        # TESTING
+        # b[0] = (-2 * previous_depth_factor * solution_grid[time_step, 0] +
+        #         (8 * step_factor - current_depth_factor) *
+        #         solution_grid[time_step - 1, 1] +
+        #         (2 * step_factor - next_depth_factor) *
+        #         solution_grid[time_step - 1, 2])
+        # ###################
 
         # Calculate the current time step's solution
         # and insert it in between boundaries in solution matrix
@@ -383,6 +398,10 @@ def solomon(max_depth, max_time, depth_steps, time_steps,
 
         # Add the boundary offset to b
         # (the offset for b[-1] is 0 because the boundary at max depth is 0)
+        # b[0] += (previous_time_lower_diagonal *
+        #          solution_grid[time_step - 1, 0] +
+        #          current_time_lower_diagonal *
+        #          solution_grid[time_step, 0])
         b[0] = (-2 * previous_depth_factor * solution_grid[time_step, 0] +
                 (8 * step_factor - current_depth_factor) *
                 solution_grid[time_step - 1, 1] +
@@ -591,6 +610,6 @@ def compare_csv_solution_grids(first_csv, second_csv):
 
 
 if __name__ == '__main__':
-    compare_solvers(crank_nicolson, wieghted_time_single)
+    compare_solvers(wieghted_time_single, wieghted_time)
     # generate_solution_grid_csv(wieghted_time_single)
     # compare_csv_solution_grids('c++_solution_grid.csv', 'solution_grid.csv')
