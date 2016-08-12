@@ -550,12 +550,12 @@ def generate_solution_grid_csv(solver):
         effective_velocity_constant, cfc_11_concentrations['concentration'])
     np.savetxt('solution_grid.csv', solution_grid, delimiter=',')
 
-def plot_solution_grid_csv():
+def plot_solution_grid_csv(csv):
     cfc_11_concentrations = np.genfromtxt(
         'cfc-11_atmospheric_concentrations.csv', dtype=float, delimiter=',',
         names=True)
     solution_grid = np.genfromtxt(
-        'solution_grid.csv', dtype=float, delimiter=',')
+        csv, dtype=float, delimiter=',')
 
     for depth in range(0, 35, 5):
         plt.plot(cfc_11_concentrations['year'], solution_grid[:,depth * 5],
@@ -610,6 +610,7 @@ def compare_csv_solution_grids(first_csv, second_csv):
 
 
 if __name__ == '__main__':
-    compare_solvers(wieghted_time_single, wieghted_time)
+    # compare_solvers(wieghted_time_single, wieghted_time)
     # generate_solution_grid_csv(wieghted_time_single)
-    # compare_csv_solution_grids('c++_solution_grid.csv', 'solution_grid.csv')
+    compare_csv_solution_grids('c++_solution_grid.csv', 'cn_solution_grid.csv')
+    # plot_solution_grid_csv('c++_solution_grid.csv')

@@ -16,6 +16,7 @@
 #include <array>
 #include <iostream>
 #include <iterator>
+#include <vector>
 
 namespace unsaturated_zone_tracer_solver_internal{
 
@@ -65,17 +66,81 @@ std::array<double, matrix_size> ThomasAlgorithimSingleValue(
   return solution_vector;
 }
 
+/**
+ * \brief Uses the Thomas Algorithm to solves a tridiagonal matrix system
+ * where the matrix's lower, middle, and upper diagonal's each have a single
+ * repeated value.
+ *
+ * \detail Unlike the other ThomasAlgorithimSingleValue() this one is not
+ * templated. Therefore, it can be used on a matrix size determined at runtime.
+ *
+ * Solves the system,
+ * \f[ A \cdot \vec{x} = \vec{b} \f]
+ *
+ * \note The matrix size is determined from the size of the `rhs_vector`.
+ *
+ * \param matrix_size The dimension of the square matrix \f$A\f$. This must be
+ * greater than 0.
+ * \param rhs_vector The vector the matrix vector product is equal to,
+ * \f$\vec{b}\f$ in the equation.
+ *
+ * \returns The vector, \f$\vec{x}\f$, that solves the system.
+ *
+ * \remark The matrix, \f$A\f$, must be diagonally dominant.
+ */
+std::vector<double> ThomasAlgorithimSingleValue(
+    const double lower_diagonal, const double middle_diagonal,
+    const double upper_diagonal, const std::vector<double> rhs_vector);
 }
 
 namespace unsaturated_zone_tracer_solver {
 
 namespace internal = unsaturated_zone_tracer_solver_internal;
 
-/**
- * \brief An alias of a two-dimensional array used to store the solution grid.
- */
+/// \brief An alias of a two-dimensional array used to store the solution grid.
 template <size_t time_steps, size_t depth_steps>
 using solution_grid = std::array<std::array<double, depth_steps>, time_steps>;
+
+/**
+ * \brief Solves the PDE using the Crank Nicolson method and returns a vector
+ * of the concentrations at the depth step closest to the requested depth.
+ *
+ * \detail Unlike CrankNicolson() this function is not templated on `time_steps`
+ * and `depth_steps`. This means these may be specified at run time instead of
+ * at compile time. Another difference is the max depth is always 200m.
+ *
+ * [This pdf](./solver_method.pdf) details the numerical method used, as well as
+ * discusses its accuracy and stability.
+ *
+ * \pre `surface_tracer_concentrations` must contain atleast `time_steps` + 1
+ * elements. One extra for the initial boundary and then one for each time step
+ * the solver will take.
+ *
+ * \param time_steps Number of time steps to take. This can be calculated as the
+ * product of `max_time` and the time step size.
+ * \param max_time The final time to step to. Starting at \f$t = 0\f$, meaning
+ * if the data starts at 1940 and ends at 2000.5 the max_time would be \f$2014 -
+ * 1940 = 74\f$.
+ * \param depth_steps Number of depth steps to take.
+ * \param effective_diffusion The constant coefficient of the second order
+ * partial of concentration with respect to position.
+ * \param effective_velocity The constant coefficient of the first order
+ * partial of concentration with respect to position.
+ * \param decay_constant The rate at which the species decays.
+ * \param surface_tracer_concentration The concentration of the tracer gas at
+ * the surface. This should contain one more element than the number of time
+ * steps for a boundary condition and it should have one value for each time
+ * step.
+ *
+ * \return A vector containing the concentrations at every time step, including
+ * the initial boundary, at the depth step closest to the requested depth. It
+ * will be of length `time_steps` + 1.
+ */
+std::vector<double> CrankNicolsonAtDepth(
+    const size_t time_steps, const double max_time, const size_t depth_steps,
+    const double effective_diffusion, const double effective_velocity,
+    const double decay_rate, const double requested_depth,
+    const std::vector<double>& surface_tracer_concentrations);
 
 /**
  * \brief Solves the PDE with the given parameters using the standard forward
@@ -91,21 +156,25 @@ using solution_grid = std::array<std::array<double, depth_steps>, time_steps>;
  * increments. The depth step after the `max_depth` is bounded at a
  * concentration of 0.
  *
- * This [pdf](./solver_method.pdf) details the method used, aswell discusses its
- * accuracy and stability.
+ * [This pdf](./solver_method.pdf) details the method used, as well as
+ * discusses its accuracy and stability.
  *
- * \param time_steps Number of time steps to take.
+ * \param time_steps Number of time steps to take. This can be calculated as the
+ * product of `max_time` and the time step size.
  * \param depth_steps Number of depth steps to take.
  * \param max_depth The final depth to step to.
- * \param max_time The final time to step to.
+ * \param max_time The final time to step to. Starting at \f$t = 0\f$, meaning
+ * if the data starts at 1940 and ends at 2000.5 the max_time would be \f$2014 -
+ * 1940 = 74\f$.
  * \param effective_diffusion The constant coefficient of the second order
  * partial of concentration with respect to position.
  * \param effective_velocity The constant coefficient of the first order
  * partial of concentration with respect to position.
+ * \param decay_constant The rate at which the species decays.
  * \param surface_tracer_concentration The concentration of the tracer gas at
- * the surface. This should contain one more element than the number of time
- * steps for a boundary condition and it should have one value for each time
- * step.
+ * the surface. This must contain one more element than the number of time
+ * steps for a boundary condition and then it should have one value for each
+ * time step.
  *
  * \return A two dimensional array of the solution grid containing all the
  * surface boundary condition (\f$z = 0\f$) and the initial boundary condition
@@ -113,11 +182,12 @@ using solution_grid = std::array<std::array<double, depth_steps>, time_steps>;
  */
 template <size_t time_steps, size_t depth_steps>
 solution_grid<time_steps + 1, depth_steps + 1> CrankNicolson(
-    const unsigned int max_time, const unsigned int max_depth,
+    const double max_time, const double max_depth,
     const double effective_diffusion, const double effective_velocity,
+    const double decay_rate,
     const std::array<double, time_steps + 1>& surface_tracer_concentrations) {
-  const double delta_time = (double)max_time / time_steps;
-  const double delta_depth = (double)max_depth / depth_steps;
+  const double delta_time = max_time / time_steps;
+  const double delta_depth = max_depth / depth_steps;
   // Construct factors in the iterative equation obtained from the finite
   // difference method.
   const double time_approx_factor = 4 * std::pow(delta_depth, 2) / delta_time;
@@ -126,7 +196,7 @@ solution_grid<time_steps + 1, depth_steps + 1> CrankNicolson(
   // time step side.
   const double previous_depth_factor = (-2 * effective_diffusion - 
                                         effective_velocity * delta_depth);
-  const double current_depth_factor = 4 * effective_diffusion;
+  const double current_depth_factor = 4 * effective_diffusion + decay_rate;
   const double next_depth_factor = (-2 * effective_diffusion +
                                     effective_velocity * delta_depth);
   // Construct the diagonal entries of the tridiagonal matrices.
@@ -217,11 +287,11 @@ solution_grid<time_steps + 1, depth_steps + 1> CrankNicolson(
  */
 template <size_t time_steps, size_t depth_steps>
 solution_grid<time_steps + 1, depth_steps + 1> WieghtedTimeDifference(
-    const unsigned int max_time, const unsigned int max_depth,
+    const double max_time, const double max_depth,
     const double effective_diffusion, const double effective_velocity,
     const std::array<double, time_steps + 1>& surface_tracer_concentrations) {
-  const double delta_time = (double)max_time / time_steps;
-  const double delta_depth = (double)max_depth / depth_steps;
+  const double delta_time = max_time / time_steps;
+  const double delta_depth = max_depth / depth_steps;
   // Construct factors in the iterative equation obtained from the finite
   // difference method.
   const double time_approx_factor = std::pow(delta_depth, 2) / delta_time;

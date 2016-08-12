@@ -26,6 +26,7 @@ int main() {
   constexpr double THETA_STAR = 0.2255;
   constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
   constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
+  constexpr double DECAY_RATE = 0.;
 
   // Read in surface tracer concentrations
   std::array<double, TIME_STEPS + 1> surface_tracer_concentrations;
@@ -44,7 +45,7 @@ int main() {
   }
 
   const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
-      74, 200, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY,
+      74, 200, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
       surface_tracer_concentrations);
   std::ofstream solution_grid_csv;
   solution_grid_csv.open("./c++_solution_grid.csv");
