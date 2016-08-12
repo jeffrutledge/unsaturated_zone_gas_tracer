@@ -18,24 +18,24 @@ The other functions use different schemes.
 
 The PDE this solver numerically approximates is,
 \[
-    \frac{\partial c_g}{\partial t} = D_e \frac{\partial^2 c_g}{\partial z^2} - V_e \frac{\partial c_g}{\partial z}
+    \frac{\partial c_g}{\partial t} = D_e \frac{\partial^2 c_g}{\partial z^2} - V_e \frac{\partial c_g}{\partial z} - \lambda c_g
 \]
-where $c_g$ is the concentration of the tracer in the gas phase, $z$ is the depth under the surface, $D_e$ is the effective diffusion constant, $V_e$ is the effective velocity, and $t$ is time.
+where $c_g$ is the concentration of the tracer in the gas phase, $z$ is the depth under the surface, $D_e$ is the effective diffusion constant, $V_e$ is the effective velocity, $\lambda$ is the decay constant, and $t$ is time.
 The boundary at the surface, $c_g(t,\ z = 0)$, is the measured atmospheric concentration of the tracer gas.
 The initial boundary, $c_g(t = 0,\ z)$, and the boundary at the max depth of 200 meters, $c_g(t,\ z = 200)$, are both assumed to be zero.
 
 \section*{Solution}
 The PDE is approximated using a scheme similar to the Crank Nicolson method, an implicit finite difference scheme.
 Let $u^m_j$ be the approximation of $c_g(t, z)$ at $t = m \Delta t$ and $z = j \Delta z$.
-The approximations used are forward difference in time,
+The partial with respect to time is approximated using the forward difference approximation,
 \[
     \frac{\partial c_g}{\partial t} \approx \frac{u^{m + 1}_j - u^m_j}{\Delta t},
 \]
-and central differences in position averaged over the $(m + 1)$th time step and the $m$th time step,
+The partials with respect to depth are approximated using central differences averaged between the $(m + 1)$th time step and the $m$th time step,
 \[
     \frac{\partial^2 c_g}{\partial z^2} \approx \frac{1}{2} \left(
         \frac{u^{m + 1}_{j + 1} - 2u^{m + 1}_j + u^{m + 1}_{j - 1}}{\Delta x^2} +
-    \frac{u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta x^2} \right)
+    \frac{u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta x^2} \right),
 \]
 and
 \[
@@ -43,19 +43,25 @@ and
         \frac{u^{m + 1}_{j + 1} - u^{m + 1}_{j - 1}}{2\Delta x} +
     \frac{u^{m}_{j + 1} - u^{m}_{j - 1}}{2\Delta x} \right).
 \]
+The decay term is approximated with an average between the concentrations at the $(m + 1)$th time step and the $m$th time step,
+\[
+    c_g \approx \frac{1}{2} \left( u^{m+1}_{j} + u^m_j \right).
+\]
 
 When substituted into the original equation these approximations yield the equation,
 \[
-    \frac{u^{m + 1}_j - u^m_j}{\Delta t} = \frac{1}{2} \left(
-        D_e\frac{u^{m + 1}_{j + 1} - 2u^{m + 1}_j + u^{m + 1}_{j - 1} + u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta x^2} -
-    V_e\frac{u^{m + 1}_{j + 1} - u^{m + 1}_{j - 1} + u^{m}_{j + 1} - u^{m}_{j - 1}}{2\Delta x} \right).
+    \begin{split}
+        \frac{u^{m + 1}_j - u^m_j}{\Delta t} = &\frac{1}{2} \left(
+            D_e\frac{u^{m + 1}_{j + 1} - 2u^{m + 1}_j + u^{m + 1}_{j - 1} + u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta x^2} - \right. \\
+            &\qquad\qquad \left. V_e\frac{u^{m + 1}_{j + 1} - u^{m + 1}_{j - 1} + u^{m}_{j + 1} - u^{m}_{j - 1}}{2\Delta x} - \lambda(u^{m + 1}_j + u^m_j) \right).
+    \end{split}
 \]
 This can be and rearranged into the equation,
 \begin{equation}
     \label{eq:iterative_solution}
     \begin{split}
-        &(-2D_e - V_e\Delta x)u^{m + 1}_{j -1} + 4\left(\frac{\Delta x^2}{\Delta t} + D_e\right)u^{m + 1}_j + (-2D_e + V_e \Delta x) u^{m + 1}_{j + 1} = \\
-        &\qquad\qquad (2D_e + V_e\Delta x)u^{m}_{j -1} + 4\left(\frac{\Delta x^2}{\Delta t} - D_e\right)u^{m}_j + (2D_e - V_e \Delta x) u^{m}_{j + 1}.
+        &(-2D_e - V_e\Delta x)u^{m + 1}_{j -1} + \left(4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda\right)u^{m + 1}_j + (-2D_e + V_e \Delta x) u^{m + 1}_{j + 1} = \\
+        &\qquad\qquad (2D_e + V_e\Delta x)u^{m}_{j -1} + \left(4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda\right)u^{m}_j + (2D_e - V_e \Delta x) u^{m}_{j + 1}.
     \end{split}
 \end{equation}
 This gives a system of equations that may be solved using a tridiagonal matrix.
@@ -78,8 +84,8 @@ where $Q^m$ is the magnitude at the $m$th time step, $k$ is frequency, and $i$ i
 Substituting this into the equation (\ref{eq:iterative_solution}),
 \[
     \begin{split}
-        &(-2D_e - V_e\Delta x)Q^{m + 1}e^{i(j - 1)k} + 4\left(\frac{\Delta x^2}{\Delta t} + D_e\right)Q^{m + 1}e^{ijk} + (-2D_e + V_e \Delta x) Q^{m + 1}e^{i(j + 1)k} = \\
-        &\qquad\qquad (2D_e + V_e\Delta x)Q^me^{i(j - 1)k} + 4\left(\frac{\Delta x^2}{\Delta t} - D_e\right)Q^me^{ijk} + (2D_e - V_e \Delta x) Q^me^{i(j + 1)k}.
+        &(-2D_e - V_e\Delta x)Q^{m + 1}e^{i(j - 1)k} + \left(4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda\right)Q^{m + 1}e^{ijk} + (-2D_e + V_e \Delta x) Q^{m + 1}e^{i(j + 1)k} = \\
+        &\qquad\qquad (2D_e + V_e\Delta x)Q^me^{i(j - 1)k} + \left(4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda\right)Q^me^{ijk} + (2D_e - V_e \Delta x) Q^me^{i(j + 1)k}.
     \end{split}
 \]
 This can be simplified into,
@@ -88,20 +94,20 @@ This can be simplified into,
 \]
 where $a$ is the amplification factor,
 \[
-    a = \frac{(2D_e + V_e\Delta x)e^{-i\Delta xk} + (2D_e - V_e\Delta x)e^{i\Delta xk} + 4\frac{\Delta x^2}{\Delta t} - 4D_e}
-    {(-2D_e - V_e\Delta x)e^{-i\Delta xk} + (-2D_e + V_e\Delta x)e^{i\Delta xk} + 4\frac{\Delta x^2}{\Delta t} + 4D_e}.
+    a = \frac{(2D_e + V_e\Delta x)e^{-i\Delta xk} + (2D_e - V_e\Delta x)e^{i\Delta xk} + 4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda}
+    {(-2D_e - V_e\Delta x)e^{-i\Delta xk} + (-2D_e + V_e\Delta x)e^{i\Delta xk} + 4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda}.
 \]
 Now we can reduce this further using Euler's formula to,
 \[
-    a = \frac{4D_e\cos\Delta xk - 2V_e\Delta xi\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} - 4D_e}
-    {-4D_e\cos\Delta xk + 2V_e\Delta xi\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} + 4D_e}
+    a = \frac{4D_e\cos\Delta xk - 2V_e\Delta xi\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda}
+    {-4D_e\cos\Delta xk + 2V_e\Delta xi\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda}
 \]
 and finally to,
 \[
-    a = \frac{1 - \frac{D_e\Delta t}{\Delta x^2} (1 - \cos\Delta x k)}
-    {1 + \frac{D_e\Delta t}{\Delta x^2} (1 - \cos\Delta x k)} - i.
+    a = \frac{1 - \lambda\frac{\Delta t}{\Delta x^2} - D_e\frac{\Delta t}{\Delta x^2} (1 - \cos\Delta x k)}
+    {1 + \lambda\frac{\Delta t}{\Delta x^2} + D_e\frac{\Delta t}{\Delta x^2} (1 - \cos\Delta x k)} - i.
 \]
-From here it can be seen that the magnitude of $a$ will always be less than or equal to 1.
-Thus this method is unconditionally stable.
+Since the imaginary term is always -1 for the magnitude of $a$ to be less than 1 the real part must be zero.
+This is not feasibly possible, so the method is unstable.
 
 \end{document}
