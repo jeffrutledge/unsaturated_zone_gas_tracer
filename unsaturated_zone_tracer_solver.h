@@ -91,6 +91,9 @@ using solution_grid = std::array<std::array<double, depth_steps>, time_steps>;
  * increments. The depth step after the `max_depth` is bounded at a
  * concentration of 0.
  *
+ * This [pdf](./solver_method.pdf) details the method used, aswell discusses its
+ * accuracy and stability.
+ *
  * \param time_steps Number of time steps to take.
  * \param depth_steps Number of depth steps to take.
  * \param max_depth The final depth to step to.
