@@ -16,7 +16,7 @@ namespace solver = unsaturated_zone_tracer_solver;
 namespace internal = unsaturated_zone_tracer_solver_internal;
 
 // Sample data for tests
-constexpr std::array<double, 149> sample_surface_concentration = {
+constexpr std::array<double, 149> SAMPLE_SURFACE_CONCENTRATION = {
   0.011857622, 
   0.013833893, 
   0.015810162999999999, 
@@ -199,13 +199,13 @@ TEST(WantedDepth, TestWantedDepthAgainstAnyDepth) {
 
   const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
       MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
-      sample_surface_concentration);
+      SAMPLE_SURFACE_CONCENTRATION);
 
   // Convert sample surface concentrations to a vector
   std::vector<double> sample_surface_concentration_vector(
-      sample_surface_concentration.size());
-  std::copy(sample_surface_concentration.cbegin(),
-            sample_surface_concentration.cend(),
+      SAMPLE_SURFACE_CONCENTRATION.size());
+  std::copy(SAMPLE_SURFACE_CONCENTRATION.cbegin(),
+            SAMPLE_SURFACE_CONCENTRATION.cend(),
             sample_surface_concentration_vector.begin());
 
   constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
@@ -243,13 +243,13 @@ TEST(WantedDepth, RoundDownRequest) {
 
   const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
       MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
-      sample_surface_concentration);
+      SAMPLE_SURFACE_CONCENTRATION);
 
   // Convert sample surface concentrations to a vector
   std::vector<double> sample_surface_concentration_vector(
-      sample_surface_concentration.size());
-  std::copy(sample_surface_concentration.cbegin(),
-            sample_surface_concentration.cend(),
+      SAMPLE_SURFACE_CONCENTRATION.size());
+  std::copy(SAMPLE_SURFACE_CONCENTRATION.cbegin(),
+            SAMPLE_SURFACE_CONCENTRATION.cend(),
             sample_surface_concentration_vector.begin());
 
   constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
@@ -288,13 +288,13 @@ TEST(WantedDepth, RoundUpRequest) {
 
   const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
       MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
-      sample_surface_concentration);
+      SAMPLE_SURFACE_CONCENTRATION);
 
   // Convert sample surface concentrations to a vector
   std::vector<double> sample_surface_concentration_vector(
-      sample_surface_concentration.size());
-  std::copy(sample_surface_concentration.cbegin(),
-            sample_surface_concentration.cend(),
+      SAMPLE_SURFACE_CONCENTRATION.size());
+  std::copy(SAMPLE_SURFACE_CONCENTRATION.cbegin(),
+            SAMPLE_SURFACE_CONCENTRATION.cend(),
             sample_surface_concentration_vector.begin());
 
   constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
