@@ -99,8 +99,8 @@ where $a$ is the amplification factor,
 \]
 Now we can reduce this further using Euler's formula to,
 \[
-    a = \frac{4D_e\cos\Delta xk - 2V_e\Delta xi\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda}
-    {-4D_e\cos\Delta xk + 2V_e\Delta xi\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda}
+    a = \frac{4D_e\cos\Delta xk - i2V_e\Delta x\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda}
+    {-4D_e\cos\Delta xk + i2V_e\Delta x\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda}
 \]
 and finally to,
 \[
@@ -108,6 +108,6 @@ and finally to,
     {1 + \lambda\frac{\Delta t}{\Delta x^2} + D_e\frac{\Delta t}{\Delta x^2} (1 - \cos\Delta x k)} - i.
 \]
 Since the imaginary term is always -1 for the magnitude of $a$ to be less than 1 the real part must be zero.
-This is not feasibly possible, so the method is unstable.
+This is not possible, so von Neumann Stability Analysis says the method is always unstable.
 
 \end{document}
