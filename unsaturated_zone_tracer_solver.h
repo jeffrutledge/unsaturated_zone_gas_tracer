@@ -333,8 +333,8 @@ solution_grid<time_steps + 1, depth_steps + 1> FullyImplicit(
   // solver_method.tex file.
   // TODO Update the solver_methods.tex with these parameters.
   const double alpha = (effective_diffusion * delta_time) /
-      (2 * std::pow(delta_depth, 2));
-  const double beta = (effective_velocity * delta_time) / (4 * delta_depth);
+      (std::pow(delta_depth, 2));
+  const double beta = (effective_velocity * delta_time) / (2 * delta_depth);
   // Construct the diagonal entries of the tridiagonal matrices.
   // For the current time step:
   const double current_time_lower_diagonal = -alpha - beta;
@@ -357,9 +357,8 @@ solution_grid<time_steps + 1, depth_steps + 1> FullyImplicit(
      // Now add boundary condition offsets.
      // Note, the boundary offset at max depth is 0 because boundary at
      // max_depth is 0.
-    previous_time_vector[0] += 
-        (solution[time_step - 1][0] -
-         current_time_lower_diagonal * solution[time_step][0]);
+    previous_time_vector[0] -= (current_time_lower_diagonal *
+                                solution[time_step][0]);
 
     // Calculate the solution for this time step and insert it into the solution
     // grid.

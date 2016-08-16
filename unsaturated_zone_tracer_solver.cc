@@ -127,4 +127,63 @@ std::vector<double> CrankNicolsonAtDepth(
   return solution_at_requested_depth;
 }
 
+std::vector<double> FullyImplicitAtDepth(
+    const size_t time_steps, const double max_time, const size_t depth_steps,
+    const double effective_diffusion, const double effective_velocity,
+    const double decay_rate, const double requested_depth,
+    const std::vector<double>& surface_tracer_concentrations) {
+  const double max_depth = 200.;
+  const double delta_time = max_time / time_steps;
+  const double delta_depth = max_depth / depth_steps;
+  // Construct factors in the iterative equation obtained from the finite
+  // difference method. These parameters are described in the
+  // solver_method.tex file.
+  const double alpha = (effective_diffusion * delta_time) /
+      (std::pow(delta_depth, 2));
+  const double beta = (effective_velocity * delta_time) / (2 * delta_depth);
+  // Construct the diagonal entries of the tridiagonal matrix.
+  const double current_time_lower_diagonal = -alpha - beta;
+  const double current_time_middle_diagonal = 1 + decay_rate + 2 * alpha;
+  const double current_time_upper_diagonal = -alpha + beta;
+
+  // Initialize the previous time solution with boundary condition at t = 0
+  std::vector<double> previous_time_solution(depth_steps + 1, 0.);
+  previous_time_solution[0] = surface_tracer_concentrations[0];
+  // Find the depth step closest to the requested depth
+  size_t requested_depth_step = round(requested_depth / delta_depth);
+  std::vector<double> solution_at_requested_depth(time_steps + 1);
+  // Add initial value to solution_at_requested_depth;
+  solution_at_requested_depth[0] = previous_time_solution[requested_depth_step];
+
+  std::vector<double> previous_time_vector(depth_steps);
+  for (size_t time_step = 1; time_step < time_steps + 1; ++time_step) {
+    // Calculate the RHS vector from the previous time step. This is simply the
+    // previous time step solution, plus some boundary offsets.
+    std::copy(std::next(previous_time_solution.begin(), 1),
+              std::prev(previous_time_solution.end(), 1),
+              previous_time_vector.begin());
+     // Now add boundary condition offsets.
+     // Note, the boundary offset at max depth is 0 because boundary at
+     // max_depth is 0.
+    previous_time_vector[0] -= (current_time_lower_diagonal *
+                                surface_tracer_concentrations[time_step]);
+
+    // Calculate solution for this time step
+    std::vector<double> current_time_solution =
+        internal::ThomasAlgorithimSingleValue(
+            current_time_lower_diagonal, current_time_middle_diagonal,
+            current_time_upper_diagonal, previous_time_vector);
+    // Insert the solution into the previous_time_solution
+    const auto insert_start = std::next(previous_time_solution.begin(), 1);
+    std::copy(current_time_solution.begin(), current_time_solution.end(),
+              insert_start);
+    // Set surface boundary value of previous_time_solution
+    previous_time_solution[0] = surface_tracer_concentrations[time_step];
+    // Add the relevant value to the wanted_depth_solution
+    solution_at_requested_depth[time_step] =
+        previous_time_solution[requested_depth_step];
+  }
+  return solution_at_requested_depth;
+}
+
 }
