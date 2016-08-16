@@ -335,8 +335,7 @@ solution_grid<time_steps + 1, depth_steps + 1> FullyImplicit(
   const double alpha = (effective_diffusion * delta_time) /
       (std::pow(delta_depth, 2));
   const double beta = (effective_velocity * delta_time) / (2 * delta_depth);
-  // Construct the diagonal entries of the tridiagonal matrices.
-  // For the current time step:
+  // Construct the diagonal entries of the tridiagonal matrix.
   const double current_time_lower_diagonal = -alpha - beta;
   const double current_time_middle_diagonal = 1 + decay_rate + 2 * alpha;
   const double current_time_upper_diagonal = -alpha + beta;
