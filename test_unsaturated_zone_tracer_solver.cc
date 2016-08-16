@@ -184,7 +184,8 @@ TEST(ThomasAlgorithim, SimpleCase) {
   }
 }
 
-TEST(WantedDepth, TestWantedDepthAgainstAnyDepth) {
+// TODO Add Tests for Fully Implicit solver
+TEST(CrankNicolsonAtDepth, ExactValue) {
   // Sample parameters
   constexpr size_t TIME_STEPS = 148;
   constexpr size_t DEPTH_STEPS = 1000;
@@ -196,6 +197,7 @@ TEST(WantedDepth, TestWantedDepthAgainstAnyDepth) {
   constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
   constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
   constexpr double DECAY_RATE = 0.;
+  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
 
   const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
       MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
@@ -208,27 +210,66 @@ TEST(WantedDepth, TestWantedDepthAgainstAnyDepth) {
             SAMPLE_SURFACE_CONCENTRATION.cend(),
             sample_surface_concentration_vector.begin());
 
-  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
-  std::vector<double> depth_solution(TIME_STEPS + 1);
-  double requested_depth;
-  for (size_t depth_step = 0; depth_step <= DEPTH_STEPS; ++depth_step) {
-    requested_depth = depth_step * DELTA_DEPTH;
-    depth_solution = solver::CrankNicolsonAtDepth(
-        TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
-        EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
-        sample_surface_concentration_vector);
-    ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test at depth = 0
+  double requested_depth = 0;
+  size_t expected_depth_step = 0;
+  std::vector<double> depth_solution =
+      solver::CrankNicolsonAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values as the `CrankNicolson()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
+  }
 
-    for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
-      ASSERT_DOUBLE_EQ(solution[time_step][depth_step],
-                       depth_solution[time_step])
-          << "Depth Step: " << depth_step << std::endl << "Time Step: "
-          << time_step;
-    }
+  // Test at middle depth
+  requested_depth = 100.2;
+  expected_depth_step = 100.2 / DELTA_DEPTH;
+  depth_solution =
+      solver::CrankNicolsonAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values
+  // Test solution has the same values as the `CrankNicolson()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
+  }
+
+  // Test at max depth
+  requested_depth = 200;
+  expected_depth_step = 200 / DELTA_DEPTH;
+  depth_solution =
+      solver::CrankNicolsonAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values as the `CrankNicolson()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
   }
 }
 
-TEST(WantedDepth, RoundDownRequest) {
+TEST(CrankNicolsonAtDepth, RoundDown) {
   // Sample parameters
   constexpr size_t TIME_STEPS = 148;
   constexpr size_t DEPTH_STEPS = 1000;
@@ -240,6 +281,7 @@ TEST(WantedDepth, RoundDownRequest) {
   constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
   constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
   constexpr double DECAY_RATE = 0.;
+  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
 
   const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
       MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
@@ -252,28 +294,27 @@ TEST(WantedDepth, RoundDownRequest) {
             SAMPLE_SURFACE_CONCENTRATION.cend(),
             sample_surface_concentration_vector.begin());
 
-  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
-  std::vector<double> depth_solution(TIME_STEPS + 1);
-  double requested_depth;
-  // Make a request that should round down
-  for (size_t depth_step = 0; depth_step <= DEPTH_STEPS; ++depth_step) {
-    requested_depth = depth_step * DELTA_DEPTH + DELTA_DEPTH * 0.4;
-    depth_solution = solver::CrankNicolsonAtDepth(
-        TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
-        EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
-        sample_surface_concentration_vector);
-    ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
-
-    for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
-      ASSERT_DOUBLE_EQ(solution[time_step][depth_step],
-                       depth_solution[time_step])
-          << "Depth Step: " << depth_step << std::endl << "Time Step: "
-          << time_step;
-    }
+  // Test at middle depth
+  double requested_depth = 100.25;
+  size_t expected_depth_step = 100.2 / DELTA_DEPTH;
+  std::vector<double> depth_solution =
+      solver::CrankNicolsonAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values as the `CrankNicolson()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
   }
 }
 
-TEST(WantedDepth, RoundUpRequest) {
+TEST(CrankNicolsonAtDepth, RoundUp) {
   // Sample parameters
   constexpr size_t TIME_STEPS = 148;
   constexpr size_t DEPTH_STEPS = 1000;
@@ -285,6 +326,7 @@ TEST(WantedDepth, RoundUpRequest) {
   constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
   constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
   constexpr double DECAY_RATE = 0.;
+  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
 
   const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
       MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
@@ -297,28 +339,201 @@ TEST(WantedDepth, RoundUpRequest) {
             SAMPLE_SURFACE_CONCENTRATION.cend(),
             sample_surface_concentration_vector.begin());
 
-  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
-  std::vector<double> depth_solution(TIME_STEPS + 1);
-  double requested_depth;
-  // Make a request that should round up
-  for (size_t depth_step = 0; depth_step < DEPTH_STEPS; ++depth_step) {
-    // Make a request that should round down
-    requested_depth = depth_step * DELTA_DEPTH + DELTA_DEPTH * 0.6;
-    depth_solution = solver::CrankNicolsonAtDepth(
-        TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
-        EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
-        sample_surface_concentration_vector);
-    ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
-
-    for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
-      // Should have rounded requested depth up to next step so add 1
-      ASSERT_DOUBLE_EQ(solution[time_step][depth_step + 1],
-                       depth_solution[time_step])
-          << "Depth Step: " << depth_step << std::endl << "Time Step: "
-          << time_step;
-    }
+  // Test at middle depth
+  double requested_depth = 100.15;
+  size_t expected_depth_step = 100.2 / DELTA_DEPTH;
+  std::vector<double> depth_solution =
+      solver::CrankNicolsonAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values as the `CrankNicolson()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
   }
 }
+
+TEST(FullyImplicitAtDepth, ExactValue) {
+  // Sample parameters
+  constexpr size_t TIME_STEPS = 148;
+  constexpr size_t DEPTH_STEPS = 1000;
+  constexpr double MAX_TIME = 74;
+  constexpr double MAX_DEPTH = 200;
+  constexpr double D_STAR = 9.88011475;
+  constexpr double Q_STAR = 0.3;
+  constexpr double THETA_STAR = 0.2255;
+  constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
+  constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
+  constexpr double DECAY_RATE = 0.;
+  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
+
+  const auto solution = solver::FullyImplicit<TIME_STEPS, DEPTH_STEPS>(
+      MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
+      SAMPLE_SURFACE_CONCENTRATION);
+
+  // Convert sample surface concentrations to a vector
+  std::vector<double> sample_surface_concentration_vector(
+      SAMPLE_SURFACE_CONCENTRATION.size());
+  std::copy(SAMPLE_SURFACE_CONCENTRATION.cbegin(),
+            SAMPLE_SURFACE_CONCENTRATION.cend(),
+            sample_surface_concentration_vector.begin());
+
+  // Test at depth = 0
+  double requested_depth = 0;
+  size_t expected_depth_step = 0;
+  std::vector<double> depth_solution =
+      solver::FullyImplicitAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values as the `FullyImplicit()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
+  }
+
+  // Test at middle depth
+  requested_depth = 100.2;
+  expected_depth_step = 100.2 / DELTA_DEPTH;
+  depth_solution =
+      solver::FullyImplicitAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values as the `FullyImplicit()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
+  }
+
+  // Test at max depth
+  requested_depth = 200;
+  expected_depth_step = 200 / DELTA_DEPTH;
+  depth_solution =
+      solver::FullyImplicitAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values as the `FullyImplicit()` solution.
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
+  }
+}
+
+TEST(FullyImplicitAtDepth, RoundDown) {
+  // Sample parameters
+  constexpr size_t TIME_STEPS = 148;
+  constexpr size_t DEPTH_STEPS = 1000;
+  constexpr double MAX_TIME = 74;
+  constexpr double MAX_DEPTH = 200;
+  constexpr double D_STAR = 9.88011475;
+  constexpr double Q_STAR = 0.3;
+  constexpr double THETA_STAR = 0.2255;
+  constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
+  constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
+  constexpr double DECAY_RATE = 0.;
+  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
+
+  const auto solution = solver::FullyImplicit<TIME_STEPS, DEPTH_STEPS>(
+      MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
+      SAMPLE_SURFACE_CONCENTRATION);
+
+  // Convert sample surface concentrations to a vector
+  std::vector<double> sample_surface_concentration_vector(
+      SAMPLE_SURFACE_CONCENTRATION.size());
+  std::copy(SAMPLE_SURFACE_CONCENTRATION.cbegin(),
+            SAMPLE_SURFACE_CONCENTRATION.cend(),
+            sample_surface_concentration_vector.begin());
+
+  // Test at middle depth
+  double requested_depth = 100.25;
+  size_t expected_depth_step = 100.2 / DELTA_DEPTH;
+  std::vector<double> depth_solution =
+      solver::FullyImplicitAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution against `FullyImplicit()` solution
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
+  }
+}
+
+TEST(FullyImplicitAtDepth, RoundUp) {
+  // Sample parameters
+  constexpr size_t TIME_STEPS = 148;
+  constexpr size_t DEPTH_STEPS = 1000;
+  constexpr double MAX_TIME = 74;
+  constexpr double MAX_DEPTH = 200;
+  constexpr double D_STAR = 9.88011475;
+  constexpr double Q_STAR = 0.3;
+  constexpr double THETA_STAR = 0.2255;
+  constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
+  constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
+  constexpr double DECAY_RATE = 0.;
+  constexpr double DELTA_DEPTH = MAX_DEPTH / DEPTH_STEPS;
+
+  const auto solution = solver::FullyImplicit<TIME_STEPS, DEPTH_STEPS>(
+      MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
+      SAMPLE_SURFACE_CONCENTRATION);
+
+  // Convert sample surface concentrations to a vector
+  std::vector<double> sample_surface_concentration_vector(
+      SAMPLE_SURFACE_CONCENTRATION.size());
+  std::copy(SAMPLE_SURFACE_CONCENTRATION.cbegin(),
+            SAMPLE_SURFACE_CONCENTRATION.cend(),
+            sample_surface_concentration_vector.begin());
+
+  // Test at middle depth
+  double requested_depth = 100.15;
+  size_t expected_depth_step = 100.2 / DELTA_DEPTH;
+  std::vector<double> depth_solution =
+      solver::FullyImplicitAtDepth(
+          TIME_STEPS, MAX_TIME, DEPTH_STEPS, EFFECTIVE_DIFFUSION,
+          EFFECTIVE_VELOCITY, DECAY_RATE, requested_depth,
+          sample_surface_concentration_vector);
+  // Test solution against `FullyImplicit()` solution
+  // Test solution has the correct length
+  ASSERT_EQ(TIME_STEPS + 1, depth_solution.size());
+  // Test solution has the same values
+  for (size_t time_step = 0; time_step <= TIME_STEPS; ++time_step) {
+    ASSERT_DOUBLE_EQ(solution[time_step][expected_depth_step],
+                     depth_solution[time_step])
+        << "Requested Depth: " << requested_depth << std::endl
+        << "Expected Depth Step: " << expected_depth_step << std::endl
+        << "Time Step: " << time_step;
+  }
+}
+
 //--------------------------------------------------
 //           RUNNING THE TESTS
 //--------------------------------------------------
