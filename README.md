@@ -1,6 +1,6 @@
 # Gas Tracer Transport through Unsaturated Zone
 
-A PDE solver. The solver methods are deatiled in ![this pdf](./solver_methods.pdf).
+A PDE solver. The solver methods are deatiled in ![this pdf](./solver_method.pdf).
 
 Models the transport of gas tracers via advection and diffusion through the unsaturated zone in thr soil.
 End goal is to improve ground water dating for thick unsaturated zones, which cause a time lag between atmospheric tracer concentrations and water table tracer concentrations.
