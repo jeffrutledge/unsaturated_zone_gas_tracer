@@ -1,6 +1,7 @@
 \documentclass[11pt, letterpaper]{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath}
+\usepackage{hyperref}
 
 % Remove Paragraph Indent
 \setlength{\parindent}{0pt}
@@ -11,21 +12,28 @@
 {\Large \bf Numerical Solver Method} \\
 {\small \it Jeffrey Rutledge}
 
-The function titled \texttt{CrankNicolson} is the solver method intended for use, and explained here.
-The other functions use different schemes.
+\section*{Functions}
 
-\section*{Problem}
+The solvers provided in \texttt{unsaturated\_zone\_tracer\_solver.h} intended for use are \texttt{CrankNicolson}, \texttt{CrankNicolsonAtDepth}, \texttt{FullyImplicit}, and \texttt{FullyImplicitAtDepth}.
+The \texttt{AtDepth} versions are different in two aspects: they return a vector at the depth step closest to the requested depth, and they are not templated on the number of time steps and depth steps so these quantities may be decided at run-time instead of compile time.
 
-The PDE this solver numerically approximates is,
+This set of functions provide use two different numerical schemes.
+The functions \texttt{CrankNicolson} and \texttt{CrankNicolsonAtDepth} use a Crank Nicolson scheme, and the functions \texttt{FullyImplicit} and \texttt{FullyImplicitAtDepth} use a fully implicit scheme.
+
+\section*{PDE}
+
+The PDE these solvers numerically approximates is,
 \[
     \frac{\partial c_g}{\partial t} = D_e \frac{\partial^2 c_g}{\partial z^2} - V_e \frac{\partial c_g}{\partial z} - \lambda c_g
 \]
 where $c_g$ is the concentration of the tracer in the gas phase, $z$ is the depth under the surface, $D_e$ is the effective diffusion constant, $V_e$ is the effective velocity, $\lambda$ is the decay constant, and $t$ is time.
 The boundary at the surface, $c_g(t,\ z = 0)$, is the measured atmospheric concentration of the tracer gas.
-The initial boundary, $c_g(t = 0,\ z)$, and the boundary at the max depth of 200 meters, $c_g(t,\ z = 200)$, are both assumed to be zero.
+The initial boundary, $c_g(t = 0,\ z > 0)$, and the boundary at the max depth of 200 meters, $c_g(t,\ z = 200)$, are both assumed to be zero.
 
-\section*{Solution}
-The PDE is approximated using a scheme similar to the Crank Nicolson method, an implicit finite difference scheme.
+\section*{Crank Nicolson}
+
+\subsection*{Scheme}
+
 Let $u^m_j$ be the approximation of $c_g(t, z)$ at $t = m \Delta t$ and $z = j \Delta z$.
 The partial with respect to time is approximated using the forward difference approximation,
 \[
@@ -34,14 +42,14 @@ The partial with respect to time is approximated using the forward difference ap
 The partials with respect to depth are approximated using central differences averaged between the $(m + 1)$th time step and the $m$th time step,
 \[
     \frac{\partial^2 c_g}{\partial z^2} \approx \frac{1}{2} \left(
-        \frac{u^{m + 1}_{j + 1} - 2u^{m + 1}_j + u^{m + 1}_{j - 1}}{\Delta x^2} +
-    \frac{u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta x^2} \right),
+        \frac{u^{m + 1}_{j + 1} - 2u^{m + 1}_j + u^{m + 1}_{j - 1}}{\Delta z^2} +
+    \frac{u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta z^2} \right),
 \]
 and
 \[
     \frac{\partial c_g}{\partial z} \approx \frac{1}{2} \left(
-        \frac{u^{m + 1}_{j + 1} - u^{m + 1}_{j - 1}}{2\Delta x} +
-    \frac{u^{m}_{j + 1} - u^{m}_{j - 1}}{2\Delta x} \right).
+        \frac{u^{m + 1}_{j + 1} - u^{m + 1}_{j - 1}}{2\Delta z} +
+    \frac{u^{m}_{j + 1} - u^{m}_{j - 1}}{2\Delta z} \right).
 \]
 The decay term is approximated with an average between the concentrations at the $(m + 1)$th time step and the $m$th time step,
 \[
@@ -52,40 +60,49 @@ When substituted into the original equation these approximations yield the equat
 \[
     \begin{split}
         \frac{u^{m + 1}_j - u^m_j}{\Delta t} = &\frac{1}{2} \left(
-            D_e\frac{u^{m + 1}_{j + 1} - 2u^{m + 1}_j + u^{m + 1}_{j - 1} + u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta x^2} - \right. \\
-            &\qquad\qquad \left. V_e\frac{u^{m + 1}_{j + 1} - u^{m + 1}_{j - 1} + u^{m}_{j + 1} - u^{m}_{j - 1}}{2\Delta x} - \lambda(u^{m + 1}_j + u^m_j) \right).
+            D_e\frac{u^{m + 1}_{j + 1} - 2u^{m + 1}_j + u^{m + 1}_{j - 1} + u^{m}_{j + 1} - 2u^{m}_j + u^{m}_{j - 1}}{\Delta z^2} - \right. \\
+            &\qquad\qquad \left. V_e\frac{u^{m + 1}_{j + 1} - u^{m + 1}_{j - 1} + u^{m}_{j + 1} - u^{m}_{j - 1}}{2\Delta z} - \lambda(u^{m + 1}_j + u^m_j) \right).
     \end{split}
 \]
-This can be and rearranged into the equation,
+Let,
+\[
+    \alpha = \frac{D_e\Delta t}{2\Delta z^2} \qquad \text{ and, } \qquad \beta = \frac{V_e\Delta t}{4\Delta z} .
+\]
+Then this can be and rearranged into the equation,
 \begin{equation}
-    \label{eq:iterative_solution}
+    \label{eq:cn_iterative_solution}
     \begin{split}
-        &(-2D_e - V_e\Delta x)u^{m + 1}_{j -1} + \left(4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda\right)u^{m + 1}_j + (-2D_e + V_e \Delta x) u^{m + 1}_{j + 1} = \\
-        &\qquad\qquad (2D_e + V_e\Delta x)u^{m}_{j -1} + \left(4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda\right)u^{m}_j + (2D_e - V_e \Delta x) u^{m}_{j + 1}.
+        &(-\alpha - \beta)u^{m + 1}_{j -1} + \left(1 + \lambda + 2\alpha \right)u^{m + 1}_j + (-\alpha + \beta) u^{m + 1}_{j + 1} = \\
+        &\qquad\qquad\qquad\qquad\qquad\qquad (\alpha + \beta)u^{m}_{j -1} + \left(1 + \lambda - 2\alpha \right)u^{m}_j + (\alpha - \beta) u^{m}_{j + 1}.
     \end{split}
 \end{equation}
+
 This gives a system of equations that may be solved using a tridiagonal matrix.
 
-\section*{Accuracy}
+\subsection*{Accuracy}
 
-The depth approximations are both central differences, which are second order, so their error is $O(\Delta x^2)$.
+The depth approximations are both central differences, which are second order, so their error is $O(\Delta z^2)$.
 The time approximation is a forward difference which is only first order, but because the depth approximations are averaged over the $(m + 1)$th and the $m$th time steps the error in time is $O(\Delta t^2)$.
-Thus the approximation is second order in the time and depth steps.
+Thus the approximation is second order in the time and depth steps $O(\Delta t^2 + \Delta z^2)$.
 
 
-\section*{Stability}
+\subsection*{Stability}
+
+von Neumann stability analysis concludes this scheme is unconditionally unstable.
+However, according to \href{www.example.com}{\underline{this stack exchange post}} the scheme is ``absolutely stable for arbitrarily large step sizes, as well as second-order accurate'' but is not ``L-stable''.
+The work for von Neumann stability analysis is below.
 
 To use von Neumann stability we will make the substitution,
 \[
-    u^m_j = Q^me^{ij\Delta x k},
+    u^m_j = Q^me^{ij\Delta z k},
 \]
 where $Q^m$ is the magnitude at the $m$th time step, $k$ is frequency, and $i$ is $\sqrt{-1}$.
 
-Substituting this into the equation (\ref{eq:iterative_solution}),
+Substituting this into the equation (\ref{eq:cn_iterative_solution}),
 \[
     \begin{split}
-        &(-2D_e - V_e\Delta x)Q^{m + 1}e^{i(j - 1)k} + \left(4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda\right)Q^{m + 1}e^{ijk} + (-2D_e + V_e \Delta x) Q^{m + 1}e^{i(j + 1)k} = \\
-        &\qquad\qquad (2D_e + V_e\Delta x)Q^me^{i(j - 1)k} + \left(4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda\right)Q^me^{ijk} + (2D_e - V_e \Delta x) Q^me^{i(j + 1)k}.
+        &(-2D_e - V_e\Delta z)Q^{m + 1}e^{i(j - 1)k} + \left(4\frac{\Delta z^2}{\Delta t} + 4D_e + \lambda\right)Q^{m + 1}e^{ijk} + (-2D_e + V_e \Delta z) Q^{m + 1}e^{i(j + 1)k} = \\
+        &\qquad\qquad (2D_e + V_e\Delta z)Q^me^{i(j - 1)k} + \left(4\frac{\Delta z^2}{\Delta t} - 4D_e - \lambda\right)Q^me^{ijk} + (2D_e - V_e \Delta z) Q^me^{i(j + 1)k}.
     \end{split}
 \]
 This can be simplified into,
@@ -94,20 +111,25 @@ This can be simplified into,
 \]
 where $a$ is the amplification factor,
 \[
-    a = \frac{(2D_e + V_e\Delta x)e^{-i\Delta xk} + (2D_e - V_e\Delta x)e^{i\Delta xk} + 4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda}
-    {(-2D_e - V_e\Delta x)e^{-i\Delta xk} + (-2D_e + V_e\Delta x)e^{i\Delta xk} + 4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda}.
+    a = \frac{(2D_e + V_e\Delta z)e^{-i\Delta zk} + (2D_e - V_e\Delta z)e^{i\Delta zk} + 4\frac{\Delta z^2}{\Delta t} - 4D_e - \lambda}
+    {(-2D_e - V_e\Delta z)e^{-i\Delta zk} + (-2D_e + V_e\Delta z)e^{i\Delta zk} + 4\frac{\Delta z^2}{\Delta t} + 4D_e + \lambda}.
 \]
 Now we can reduce this further using Euler's formula to,
 \[
-    a = \frac{4D_e\cos\Delta xk - i2V_e\Delta x\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} - 4D_e - \lambda}
-    {-4D_e\cos\Delta xk + i2V_e\Delta x\sin \Delta x k + 4\frac{\Delta x^2}{\Delta t} + 4D_e + \lambda}
+    a = \frac{4D_e\cos\Delta zk - i2V_e\Delta z\sin \Delta z k + 4\frac{\Delta z^2}{\Delta t} - 4D_e - \lambda}
+    {-4D_e\cos\Delta zk + i2V_e\Delta z\sin \Delta z k + 4\frac{\Delta z^2}{\Delta t} + 4D_e + \lambda}
 \]
 and finally to,
 \[
-    a = \frac{1 - \lambda\frac{\Delta t}{\Delta x^2} - D_e\frac{\Delta t}{\Delta x^2} (1 - \cos\Delta x k)}
-    {1 + \lambda\frac{\Delta t}{\Delta x^2} + D_e\frac{\Delta t}{\Delta x^2} (1 - \cos\Delta x k)} - i.
+    a = \frac{1 - \lambda\frac{\Delta t}{\Delta z^2} - D_e\frac{\Delta t}{\Delta z^2} (1 - \cos\Delta z k)}
+    {1 + \lambda\frac{\Delta t}{\Delta z^2} + D_e\frac{\Delta t}{\Delta z^2} (1 - \cos\Delta z k)} - i.
 \]
 Since the imaginary term is always -1 for the magnitude of $a$ to be less than 1 the real part must be zero.
 This is not possible, so von Neumann Stability Analysis says the method is always unstable.
+
+\section*{Fully Implicit}
+
+\subsection*{Scheme}
+
 
 \end{document}
