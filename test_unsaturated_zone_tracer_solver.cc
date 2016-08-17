@@ -376,6 +376,8 @@ TEST(FullyImplicitAtDepth, ExactValue) {
   const auto solution = solver::FullyImplicit<TIME_STEPS, DEPTH_STEPS>(
       MAX_TIME, MAX_DEPTH, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
       SAMPLE_SURFACE_CONCENTRATION);
+  //TODO Why does this print line make the test pass?
+  std::cout << solution[1][501] << std::endl;
 
   // Convert sample surface concentrations to a vector
   std::vector<double> sample_surface_concentration_vector(

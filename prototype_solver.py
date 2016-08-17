@@ -599,7 +599,7 @@ def compare_csv_solution_grids(first_csv, second_csv):
     first_solution_grid = np.genfromtxt(first_csv, dtype=float, delimiter=',')
     second_solution_grid = np.genfromtxt(second_csv, dtype=float, delimiter=',')
 
-    solution_grid_difference = first_solution_grid - second_solution_grid
+    solution_grid_difference = (first_solution_grid - second_solution_grid) / second_solution_grid
 
     for depth in range(0, 35, 5):
         plt.plot(cfc_11_concentrations['year'], solution_grid_difference[:,depth * 5],
@@ -612,5 +612,8 @@ def compare_csv_solution_grids(first_csv, second_csv):
 if __name__ == '__main__':
     # compare_solvers(wieghted_time_single, wieghted_time)
     # generate_solution_grid_csv(wieghted_time_single)
-    compare_csv_solution_grids('c++_solution_grid.csv', 'cn_solution_grid.csv')
-    # plot_solution_grid_csv('c++_solution_grid.csv')
+    # compare_csv_solution_grids('./fi_solution_grid.csv', './solomon_fully_implicit.csv')
+    # compare_csv_solution_grids('./cn_solution_grid.csv', './solomon_crank_nicolson.csv')
+    compare_csv_solution_grids('./fi_solution_grid.csv', './cn_solution_grid.csv')
+    # compare_csv_solution_grids('./solomon_fully_implicit.csv', './solomon_crank_nicolson.csv')
+    # plot_solution_grid_csv('fi_solution_grid.csv')

@@ -27,7 +27,7 @@ int main() {
   constexpr double EFFECTIVE_DIFFUSION = D_STAR / THETA_STAR;
   constexpr double EFFECTIVE_VELOCITY = Q_STAR / THETA_STAR;
   constexpr double DECAY_RATE = 0.;
-
+  
   // Read in surface tracer concentrations
   std::array<double, TIME_STEPS + 1> surface_tracer_concentrations;
   std::ifstream surface_tracer_csv("./cfc-11_atmospheric_concentrations.csv");
@@ -44,11 +44,14 @@ int main() {
     ++entry_input_count;
   }
 
-  const auto solution = solver::CrankNicolson<TIME_STEPS, DEPTH_STEPS>(
+  // Generate solution grid
+  const auto solution = solver::FullyImplicit<TIME_STEPS, DEPTH_STEPS>(
       74, 200, EFFECTIVE_DIFFUSION, EFFECTIVE_VELOCITY, DECAY_RATE,
       surface_tracer_concentrations);
+
+  // Output solution grid to .csv
   std::ofstream solution_grid_csv;
-  solution_grid_csv.open("./c++_solution_grid.csv");
+  solution_grid_csv.open("./fi_solution_grid.csv");
   solution_grid_csv.precision(std::numeric_limits<double>::max_digits10);
   for (const auto time_step : solution) {
     auto point_iter = time_step.cbegin();

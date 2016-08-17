@@ -331,7 +331,6 @@ solution_grid<time_steps + 1, depth_steps + 1> FullyImplicit(
   // Construct factors in the iterative equation obtained from the finite
   // difference method. These parameters are described in the
   // solver_method.tex file.
-  // TODO Update the solver_methods.tex with these parameters.
   const double alpha = (effective_diffusion * delta_time) /
       (std::pow(delta_depth, 2));
   const double beta = (effective_velocity * delta_time) / (2 * delta_depth);
@@ -339,11 +338,11 @@ solution_grid<time_steps + 1, depth_steps + 1> FullyImplicit(
   const double current_time_lower_diagonal = -alpha - beta;
   const double current_time_middle_diagonal = 1 + decay_rate + 2 * alpha;
   const double current_time_upper_diagonal = -alpha + beta;
+
   // Initialize the solution grid with boundary condition at t = 0
   solution_grid<time_steps + 1, depth_steps + 1> solution;
   solution[0].fill(0.);
   solution[0][0] = surface_tracer_concentrations[0];
-
   std::array<double, depth_steps> previous_time_vector;
   for (size_t time_step = 1; time_step < time_steps + 1; ++time_step) {
     // Add surface concentration boundary to solution.

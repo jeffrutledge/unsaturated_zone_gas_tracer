@@ -149,7 +149,6 @@ std::vector<double> FullyImplicitAtDepth(
   std::vector<double> solution_at_requested_depth(time_steps + 1);
   // Add initial value to solution_at_requested_depth;
   solution_at_requested_depth[0] = previous_time_solution[requested_depth_step];
-
   std::vector<double> previous_time_vector(depth_steps);
   for (size_t time_step = 1; time_step < time_steps + 1; ++time_step) {
     // Calculate the RHS vector from the previous time step. This is simply the
